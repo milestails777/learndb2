@@ -7,3 +7,20 @@ services:
       - 9000:80
     volumes:
       - ./html:/usr/local/apache2/htdocs
+
+  db:
+    image: mariadb
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: example
+    volumes:
+      - kta24blearndb2dbsamircibis:/var/lib/mysql
+    ports:
+      - 33061:3306
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+volumes:
+  kta24blearndb2dbsamircibis:
