@@ -15,7 +15,13 @@ From this project folder, start the API and database:
 docker compose up -d --build --wait
 ```
 
-The API is available at `http://localhost:3000`; PostgreSQL is available at `localhost:5432` with database/user/password `cinema` / `student` / `student`. The API container waits for the database and applies Prisma migrations on startup. PostgreSQL data is stored in the `cinema_postgres_data` named volume.
+The API is available at `http://localhost:3000`; PostgreSQL is available at `localhost:5432`. The API container waits for the database and applies Prisma migrations on startup. PostgreSQL data is stored in the `cinema_postgres_data` named volume.
+
+To fill the database with demo data, run:
+
+```sh
+docker compose exec api npm run db:seed
+```
 
 Available API endpoints:
 
@@ -31,6 +37,8 @@ Booking requests validate that the user, screening, and seat exist, that the sea
 
 ## Install dependencies and configure Prisma
 
+Use these commands only if you want to run Prisma tools directly on your computer instead of in Docker:
+
 ```sh
 cd orm
 npm install
@@ -39,7 +47,7 @@ Copy-Item .env.example .env
 
 On macOS/Linux, use `cp .env.example .env` instead of `Copy-Item`.
 
-## Create tables and load demo data
+## Run Prisma tools on your computer
 
 ```sh
 npm run db:migrate
