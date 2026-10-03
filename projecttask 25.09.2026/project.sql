@@ -6,6 +6,18 @@ create table halls
     seats_count int         not null
 );
 
+create table seats
+(
+    seat_id     int auto_increment
+        primary key,
+    hall_id     int not null,
+    seat_number int not null,
+    constraint seats_hall_seat
+        unique (hall_id, seat_number),
+    constraint seats_hall_fk
+        foreign key (hall_id) references halls (hall_id)
+);
+
 create table movies
 (
     movie_id         int auto_increment
@@ -49,9 +61,9 @@ create table users
 (
     user_id    int auto_increment
         primary key,
-    username   varchar(50)  not null,
-    email      varchar(100) not null,
-    password   varchar(50)  not null,
+    username   varchar(50)  not null unique,
+    email      varchar(100) not null unique,
+    password   varchar(255) not null,
     first_name varchar(50)  not null,
     last_name  varchar(50)  not null,
     birth_date date         not null
@@ -62,10 +74,17 @@ create table bookings
     booking_id   int auto_increment
         primary key,
     user_id      int      not null,
-    seat_number  int      not null,
+    screening_id int      not null,
+    seat_id      int      not null,
     booking_date datetime not null,
     constraint `1`
-        foreign key (user_id) references users (user_id)
+        foreign key (user_id) references users (user_id),
+    constraint `2`
+        foreign key (screening_id) references screenings (screening_id),
+    constraint `3`
+        foreign key (seat_id) references seats (seat_id),
+    constraint bookings_screening_seat
+        unique (screening_id, seat_id)
 );
 
 create index user_id
@@ -90,4 +109,3 @@ create index movie_id
 
 create index user_id
     on reviews (user_id);
-

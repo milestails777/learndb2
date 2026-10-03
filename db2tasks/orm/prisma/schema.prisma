@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Hall {
+  hallId     Int         @id @default(autoincrement()) @map("hall_id")
+  name       String      @db.VarChar(50)
+  seatsCount Int         @map("seats_count")
+  screenings Screening[]
+  seats      Seat[]
+
+  @@map("halls")
+}
+
+model Movie {
+  movieId         Int         @id @default(autoincrement()) @map("movie_id")
+  title           String      @db.VarChar(150)
+  description     String?     @db.Text
+  durationMinutes Int         @map("duration_minutes")
+  rating          String      @db.VarChar(10)
+  screenings      Screening[]
+  reviews         Review[]
+
+  @@map("movies")
+}
+
+model News {
+  newsId   Int      @id @default(autoincrement()) @map("news_id")
+  title    String   @db.VarChar(200)
+  content  String   @db.Text
+  postDate DateTime @map("post_date") @db.Date
+
+  @@map("news")
+}
+
+model Screening {
+  screeningId Int       @id @default(autoincrement()) @map("screening_id")
+  movieId     Int       @map("movie_id")
+  hallId      Int       @map("hall_id")
+  startTime   DateTime  @map("start_time") @db.Timestamp(0)
+  price       Int
+  movie       Movie     @relation(fields: [movieId], references: [movieId])
+  hall        Hall      @relation(fields: [hallId], references: [hallId])
+  bookings    Booking[]
+
+  @@index([hallId], map: "screenings_hall_id_idx")
+  @@index([movieId], map: "screenings_movie_id_idx")
+  @@map("screenings")
+}
+
+model User {
+  userId    Int       @id @default(autoincrement()) @map("user_id")
+  username  String    @unique(map: "users_username_key") @db.VarChar(50)
+  email     String    @unique(map: "users_email_key") @db.VarChar(100)
+  password  String    @db.VarChar(255)
+  firstName String    @map("first_name") @db.VarChar(50)
+  lastName  String    @map("last_name") @db.VarChar(50)
+  birthDate DateTime  @map("birth_date") @db.Date
+  bookings  Booking[]
+  reviews   Review[]
+
+  @@map("users")
+}
+
+model Booking {
+  bookingId   Int       @id @default(autoincrement()) @map("booking_id")
+  userId      Int       @map("user_id")
+  screeningId Int       @map("screening_id")
+  seatId      Int       @map("seat_id")
+  bookingDate DateTime  @map("booking_date") @db.Timestamp(0)
+  user        User      @relation(fields: [userId], references: [userId])
+  screening   Screening @relation(fields: [screeningId], references: [screeningId])
+  seat        Seat      @relation(fields: [seatId], references: [seatId])
+
+  @@unique([screeningId, seatId], map: "bookings_screening_seat_key")
+  @@index([userId], map: "bookings_user_id_idx")
+  @@map("bookings")
+}
+
+model Seat {
+  seatId     Int       @id @default(autoincrement()) @map("seat_id")
+  hallId     Int       @map("hall_id")
+  seatNumber Int       @map("seat_number")
+  hall       Hall      @relation(fields: [hallId], references: [hallId])
+  bookings   Booking[]
+
+  @@unique([hallId, seatNumber], map: "seats_hall_seat_key")
+  @@map("seats")
+}
+
+model Review {
+  reviewId Int     @id @default(autoincrement()) @map("review_id")
+  movieId  Int     @map("movie_id")
+  userId   Int     @map("user_id")
+  stars    Int
+  text     String? @db.Text
+  movie    Movie   @relation(fields: [movieId], references: [movieId])
+  user     User    @relation(fields: [userId], references: [userId])
+
+  @@index([movieId], map: "reviews_movie_id_idx")
+  @@index([userId], map: "reviews_user_id_idx")
+  @@map("reviews")
+}
