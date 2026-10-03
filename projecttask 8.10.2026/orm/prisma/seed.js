@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 faker.seed(250926);
 
 try {
+  console.log("Removing old demo data...");
   await prisma.booking.deleteMany();
   await prisma.review.deleteMany();
   await prisma.screening.deleteMany();
@@ -16,87 +17,87 @@ try {
   await prisma.movie.deleteMany();
   await prisma.hall.deleteMany();
 
-  await prisma.hall.createMany({
-    data: Array.from({ length: 5 }, (_, index) => ({
-      name: `Hall ${index + 1}`,
+  const halls = [];
+  for (let i = 1; i <= 5; i++) {
+    halls.push({
+      name: `Hall ${i}`,
       seatsCount: faker.number.int({ min: 80, max: 160 }),
-    })),
-  });
-  const halls = await prisma.hall.findMany();
-  const seatData = halls.flatMap((hall) =>
-    Array.from({ length: hall.seatsCount }, (_, index) => ({
-      hallId: hall.hallId,
-      seatNumber: index + 1,
-    })),
-  );
-  await prisma.seat.createMany({ data: seatData });
+    });
+  }
+  await prisma.hall.createMany({ data: halls });
 
-  await prisma.movie.createMany({
-    data: Array.from({ length: 20 }, () => ({
+  const savedHalls = await prisma.hall.findMany();
+  const seats = [];
+  for (const hall of savedHalls) {
+    for (let number = 1; number <= hall.seatsCount; number++) {
+      seats.push({ hallId: hall.hallId, seatNumber: number });
+    }
+  }
+  await prisma.seat.createMany({ data: seats });
+
+  const movies = [];
+  for (let i = 0; i < 20; i++) {
+    movies.push({
       title: faker.lorem.words({ min: 2, max: 5 }),
       description: faker.lorem.paragraph(),
       durationMinutes: faker.number.int({ min: 80, max: 190 }),
       rating: faker.helpers.arrayElement(["G", "PG", "PG-13", "R"]),
-    })),
-  });
-  await prisma.news.createMany({
-    data: Array.from({ length: 30 }, () => ({
-      title: faker.lorem.sentence({ min: 4, max: 8 }),
-      content: faker.lorem.paragraphs({ min: 2, max: 4 }),
+    });
+  }
+  await prisma.movie.createMany({ data: movies });
+  const savedMovies = await prisma.movie.findMany();
+
+  const users = [];
+  for (let i = 1; i <= 50; i++) {
+    const salt = randomBytes(16);
+    const password = scryptSync(faker.internet.password(), salt, 64);
+
+    users.push({
+      username: `movie_fan_${i}`,
+      email: `movie_fan_${i}@example.com`,
+      password: `scrypt:${salt.toString("hex")}:${password.toString("hex")}`,
+      firstName: faker.person.firstName(),
+      lastName: faker.person.lastName(),
+      birthDate: faker.date.birthdate({ min: 18, max: 80, mode: "age" }),
+    });
+  }
+  await prisma.user.createMany({ data: users });
+  const savedUsers = await prisma.user.findMany();
+
+  const news = [];
+  for (let i = 0; i < 30; i++) {
+    news.push({
+      title: faker.lorem.sentence(),
+      content: faker.lorem.paragraphs(2),
       postDate: faker.date.recent({ days: 90 }),
-    })),
-  });
-  await prisma.user.createMany({
-    data: Array.from({ length: 50 }, (_, index) => {
-      const salt = randomBytes(16);
-      const passwordHash = scryptSync(faker.internet.password({ length: 32 }), salt, 64);
-      const [emailName, emailDomain] = faker.internet.email().split("@");
-      const suffix = String(index);
-      const localPartLength = 99 - emailDomain.length - suffix.length - 1;
-      const email = `${emailName.slice(0, localPartLength)}+${suffix}@${emailDomain}`;
+    });
+  }
+  await prisma.news.createMany({ data: news });
 
-      return {
-        username: `${faker.internet.username().slice(0, 38)}_${index}`,
-        email,
-        password: `scrypt:${salt.toString("hex")}:${passwordHash.toString("hex")}`,
-        firstName: faker.person.firstName(),
-        lastName: faker.person.lastName(),
-        birthDate: faker.date.birthdate({ min: 18, max: 80, mode: "age" }),
-      };
-    }),
-  });
+  const screenings = [];
+  for (let i = 0; i < 120; i++) {
+    const startTime = faker.date.soon({ days: 30 });
+    startTime.setHours(10 + (i % 12), (i % 4) * 15, 0, 0);
 
-  const [movies, users] = await Promise.all([
-    prisma.movie.findMany(),
-    prisma.user.findMany(),
-  ]);
+    screenings.push({
+      movieId: faker.helpers.arrayElement(savedMovies).movieId,
+      hallId: savedHalls[i % savedHalls.length].hallId,
+      startTime,
+      price: faker.number.int({ min: 8, max: 25 }),
+    });
+  }
+  await prisma.screening.createMany({ data: screenings });
 
-  await prisma.screening.createMany({
-    data: Array.from({ length: 120 }, (_, index) => {
-      const startTime = faker.date.soon({ days: 30 });
-      startTime.setHours(10 + (index % 12), [0, 15, 30, 45][index % 4], 0, 0);
-
-      return {
-        movieId: faker.helpers.arrayElement(movies).movieId,
-        hallId: halls[index % halls.length].hallId,
-        startTime,
-        price: faker.number.int({ min: 8, max: 25 }),
-      };
-    }),
-  });
-
-  const screenings = await prisma.screening.findMany();
-  const seats = await prisma.seat.findMany();
-  const seatsByHall = new Map(halls.map((hall) => [
-    hall.hallId,
-    seats.filter((seat) => seat.hallId === hall.hallId),
-  ]));
+  const savedScreenings = await prisma.screening.findMany();
+  const savedSeats = await prisma.seat.findMany();
   const bookings = [];
-  for (const screening of screenings) {
-    const bookedSeats = faker.helpers.shuffle(seatsByHall.get(screening.hallId)).slice(0, 2);
-    for (const seat of bookedSeats) {
+  for (const screening of savedScreenings) {
+    const hallSeats = savedSeats.filter((seat) => seat.hallId === screening.hallId);
+    const twoSeats = faker.helpers.shuffle(hallSeats).slice(0, 2);
+
+    for (const seat of twoSeats) {
       bookings.push({
-        userId: faker.helpers.arrayElement(users).userId,
+        userId: faker.helpers.arrayElement(savedUsers).userId,
         screeningId: screening.screeningId,
         seatId: seat.seatId,
         bookingDate: faker.date.recent({ days: 30 }),
@@ -105,18 +106,20 @@ try {
   }
   await prisma.booking.createMany({ data: bookings });
 
-  await prisma.review.createMany({
-    data: Array.from({ length: 80 }, () => ({
-      movieId: faker.helpers.arrayElement(movies).movieId,
-      userId: faker.helpers.arrayElement(users).userId,
+  const reviews = [];
+  for (let i = 0; i < 80; i++) {
+    reviews.push({
+      movieId: faker.helpers.arrayElement(savedMovies).movieId,
+      userId: faker.helpers.arrayElement(savedUsers).userId,
       stars: faker.number.int({ min: 1, max: 5 }),
       text: faker.lorem.sentence(),
-    })),
-  });
+    });
+  }
+  await prisma.review.createMany({ data: reviews });
 
-  console.log(
-    `Seeded ${halls.length} halls, ${seatData.length} seats, ${movies.length} movies, ${users.length} users, ${screenings.length} screenings, ${bookings.length} bookings, 80 reviews, and 30 news items.`,
-  );
+  console.log(`Done: ${savedHalls.length} halls, ${seats.length} seats, ${savedMovies.length} movies.`);
+  console.log(`      ${savedUsers.length} users, ${savedScreenings.length} screenings, ${bookings.length} bookings.`);
+  console.log(`      ${reviews.length} reviews, ${news.length} news posts.`);
 } finally {
   await prisma.$disconnect();
 }

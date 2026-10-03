@@ -3,18 +3,13 @@ import { Prisma, PrismaClient } from "@prisma/client";
 
 const app = express();
 const prisma = new PrismaClient();
-const port = Number(process.env.PORT ?? 3000);
+const port = process.env.PORT || 3000;
 
-app.disable("x-powered-by");
-app.use(express.json({ limit: "16kb" }));
+app.use(express.json());
 
-function parseId(value) {
-  if (typeof value !== "string" || !/^[1-9]\d*$/.test(value)) {
-    return null;
-  }
-
+function getId(value) {
   const id = Number(value);
-  return Number.isSafeInteger(id) ? id : null;
+  return Number.isInteger(id) && id > 0 ? id : null;
 }
 
 app.get("/health", (_request, response) => {
@@ -24,191 +19,143 @@ app.get("/health", (_request, response) => {
 app.get("/api/movies", async (_request, response) => {
   const movies = await prisma.movie.findMany({
     orderBy: { title: "asc" },
-    select: {
-      movieId: true,
-      title: true,
-      description: true,
-      durationMinutes: true,
-      rating: true,
-    },
   });
-
   response.json(movies);
 });
 
 app.get("/api/news", async (_request, response) => {
   const news = await prisma.news.findMany({
     orderBy: { postDate: "desc" },
-    select: { newsId: true, title: true, content: true, postDate: true },
   });
-
   response.json(news);
 });
 
 app.get("/api/screenings", async (request, response) => {
-  const movieId = request.query.movieId === undefined
-    ? undefined
-    : parseId(request.query.movieId);
+  let movieId;
 
-  if (request.query.movieId !== undefined && movieId === null) {
-    response.status(400).json({ error: "movieId must be a positive integer." });
-    return;
+  if (request.query.movieId !== undefined) {
+    movieId = getId(request.query.movieId);
+    if (!movieId) {
+      return response.status(400).json({ error: "movieId must be a positive number." });
+    }
   }
 
   const screenings = await prisma.screening.findMany({
-    where: movieId === undefined ? undefined : { movieId },
+    where: movieId ? { movieId } : {},
     orderBy: { startTime: "asc" },
     include: {
-      movie: { select: { movieId: true, title: true, durationMinutes: true, rating: true } },
-      hall: { select: { hallId: true, name: true, seatsCount: true } },
+      movie: true,
+      hall: true,
       _count: { select: { bookings: true } },
     },
   });
-
   response.json(screenings);
 });
 
-app.get("/api/screenings/:screeningId/seats", async (request, response) => {
-  const screeningId = parseId(request.params.screeningId);
-  if (screeningId === null) {
-    response.status(400).json({ error: "screeningId must be a positive integer." });
-    return;
+app.get("/api/screenings/:id/seats", async (request, response) => {
+  const screeningId = getId(request.params.id);
+  if (!screeningId) {
+    return response.status(400).json({ error: "Screening ID must be a positive number." });
   }
 
   const screening = await prisma.screening.findUnique({
     where: { screeningId },
-    select: { screeningId: true, hallId: true },
   });
   if (!screening) {
-    response.status(404).json({ error: "Screening not found." });
-    return;
+    return response.status(404).json({ error: "Screening not found." });
   }
 
   const seats = await prisma.seat.findMany({
     where: { hallId: screening.hallId },
     orderBy: { seatNumber: "asc" },
-    select: {
-      seatId: true,
-      seatNumber: true,
+    include: {
       bookings: {
         where: { screeningId },
         select: { bookingId: true },
-        take: 1,
       },
     },
   });
 
-  response.json(seats.map(({ bookings, ...seat }) => ({
-    ...seat,
-    available: bookings.length === 0,
+  response.json(seats.map((seat) => ({
+    seatId: seat.seatId,
+    seatNumber: seat.seatNumber,
+    available: seat.bookings.length === 0,
   })));
 });
 
 app.get("/api/bookings", async (request, response) => {
-  const userId = request.query.userId === undefined
-    ? undefined
-    : parseId(request.query.userId);
+  let userId;
 
-  if (request.query.userId !== undefined && userId === null) {
-    response.status(400).json({ error: "userId must be a positive integer." });
-    return;
+  if (request.query.userId !== undefined) {
+    userId = getId(request.query.userId);
+    if (!userId) {
+      return response.status(400).json({ error: "userId must be a positive number." });
+    }
   }
 
   const bookings = await prisma.booking.findMany({
-    where: userId === undefined ? undefined : { userId },
+    where: userId ? { userId } : {},
     orderBy: { bookingDate: "desc" },
     include: {
-      screening: {
-        select: {
-          screeningId: true,
-          startTime: true,
-          movie: { select: { title: true } },
-          hall: { select: { name: true } },
-        },
-      },
-      seat: { select: { seatId: true, seatNumber: true } },
+      screening: { include: { movie: true, hall: true } },
+      seat: true,
     },
   });
-
   response.json(bookings);
 });
 
 app.post("/api/bookings", async (request, response, next) => {
-  const { userId, screeningId, seatId } = request.body ?? {};
-  const ids = [userId, screeningId, seatId];
-  if (!ids.every((id) => Number.isSafeInteger(id) && id > 0)) {
-    response.status(400).json({
-      error: "userId, screeningId, and seatId must be positive integers.",
+  const { userId, screeningId, seatId } = request.body || {};
+
+  if (![userId, screeningId, seatId].every((id) => Number.isInteger(id) && id > 0)) {
+    return response.status(400).json({
+      error: "Send positive userId, screeningId, and seatId numbers.",
     });
-    return;
   }
 
   try {
-    const [user, screening] = await Promise.all([
-      prisma.user.findUnique({ where: { userId }, select: { userId: true } }),
-      prisma.screening.findUnique({
-        where: { screeningId },
-        select: { screeningId: true, hallId: true },
-      }),
-    ]);
-
+    const user = await prisma.user.findUnique({ where: { userId } });
     if (!user) {
-      response.status(404).json({ error: "User not found." });
-      return;
+      return response.status(404).json({ error: "User not found." });
     }
+
+    const screening = await prisma.screening.findUnique({ where: { screeningId } });
     if (!screening) {
-      response.status(404).json({ error: "Screening not found." });
-      return;
+      return response.status(404).json({ error: "Screening not found." });
     }
 
     const seat = await prisma.seat.findFirst({
       where: { seatId, hallId: screening.hallId },
-      select: { seatId: true },
     });
     if (!seat) {
-      response.status(400).json({ error: "Seat does not belong to the screening's hall." });
-      return;
+      return response.status(400).json({ error: "Seat is not in this screening's hall." });
     }
 
     const booking = await prisma.booking.create({
       data: { userId, screeningId, seatId, bookingDate: new Date() },
-      include: {
-        screening: { select: { screeningId: true, startTime: true } },
-        seat: { select: { seatId: true, seatNumber: true } },
-      },
     });
-
     response.status(201).json(booking);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      response.status(409).json({ error: "That seat is already booked for this screening." });
-      return;
+      return response.status(409).json({ error: "This seat is already booked." });
     }
-
     next(error);
   }
 });
 
 app.use((error, _request, response, _next) => {
   if (error instanceof SyntaxError && "body" in error) {
-    response.status(400).json({ error: "Request body must contain valid JSON." });
-    return;
+    return response.status(400).json({ error: "Request body must be valid JSON." });
   }
 
   console.error(error);
-  response.status(500).json({ error: "Internal server error." });
+  response.status(500).json({ error: "Server error." });
 });
 
 const server = app.listen(port, "0.0.0.0", () => {
-  console.log(`Cinema API listening on port ${port}.`);
+  console.log(`Cinema API is running on port ${port}.`);
 });
 
-async function shutdown() {
-  server.close(async () => {
-    await prisma.$disconnect();
-    process.exit(0);
-  });
-}
-
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+process.on("SIGTERM", () => {
+  server.close(() => prisma.$disconnect());
+});
