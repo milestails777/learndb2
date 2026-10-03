@@ -1,5 +1,7 @@
 # Cinema
 
+The backend uses JavaScript, Express, and Prisma. I chose them because they are simple to run with Docker and Prisma keeps the database structure in one place.
+
 Open PowerShell in this folder and run:
 
 ```powershell
