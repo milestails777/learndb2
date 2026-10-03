@@ -44,8 +44,8 @@ model Screening {
   hallId      Int       @map("hall_id")
   startTime   DateTime  @map("start_time") @db.Timestamp(0)
   price       Int
-  movie       Movie     @relation(fields: [movieId], references: [movieId])
-  hall        Hall      @relation(fields: [hallId], references: [hallId])
+  movie       Movie     @relation(fields: [movieId], references: [movieId], onDelete: Restrict, onUpdate: Restrict)
+  hall        Hall      @relation(fields: [hallId], references: [hallId], onDelete: Restrict, onUpdate: Restrict)
   bookings    Booking[]
 
   @@index([hallId], map: "screenings_hall_id_idx")
@@ -73,9 +73,9 @@ model Booking {
   screeningId Int       @map("screening_id")
   seatId      Int       @map("seat_id")
   bookingDate DateTime  @map("booking_date") @db.Timestamp(0)
-  user        User      @relation(fields: [userId], references: [userId])
-  screening   Screening @relation(fields: [screeningId], references: [screeningId])
-  seat        Seat      @relation(fields: [seatId], references: [seatId])
+  user        User      @relation(fields: [userId], references: [userId], onDelete: Restrict, onUpdate: Restrict)
+  screening   Screening @relation(fields: [screeningId], references: [screeningId], onDelete: Restrict, onUpdate: Restrict)
+  seat        Seat      @relation(fields: [seatId], references: [seatId], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([screeningId, seatId], map: "bookings_screening_seat_key")
   @@index([userId], map: "bookings_user_id_idx")
@@ -86,7 +86,7 @@ model Seat {
   seatId     Int       @id @default(autoincrement()) @map("seat_id")
   hallId     Int       @map("hall_id")
   seatNumber Int       @map("seat_number")
-  hall       Hall      @relation(fields: [hallId], references: [hallId])
+  hall       Hall      @relation(fields: [hallId], references: [hallId], onDelete: Restrict, onUpdate: Restrict)
   bookings   Booking[]
 
   @@unique([hallId, seatNumber], map: "seats_hall_seat_key")
@@ -99,8 +99,8 @@ model Review {
   userId   Int     @map("user_id")
   stars    Int
   text     String? @db.Text
-  movie    Movie   @relation(fields: [movieId], references: [movieId])
-  user     User    @relation(fields: [userId], references: [userId])
+  movie    Movie   @relation(fields: [movieId], references: [movieId], onDelete: Restrict, onUpdate: Restrict)
+  user     User    @relation(fields: [userId], references: [userId], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([movieId], map: "reviews_movie_id_idx")
   @@index([userId], map: "reviews_user_id_idx")
