@@ -1,6 +1,6 @@
 services:
   web:
-    build: 
+    build:
       context: .
       dockerfile: dockerfile
     ports:
@@ -9,25 +9,19 @@ services:
       - ./html:/usr/local/apache2/htdocs
 
   db:
-    image: postgres:16
+    image: mariadb
     restart: always
     environment:
-      POSTGRES_DB: cinema
-      POSTGRES_USER: student
-      POSTGRES_PASSWORD: student
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U student -d cinema"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      MARIADB_ROOT_PASSWORD: example
+      MARIADB_DATABASE: project
     volumes:
-      - cinema_postgres_data:/var/lib/postgresql/data
+      - ta24blearndb2dbdata:/var/lib/mysql
     ports:
-      - "5432:5432"
-  adminer:
-    image: adminer
+      - 33061:3306
+  redis:
+    image: redis
     restart: always
     ports:
-      - 8080:8080
+      - 6379:6379
 volumes:
-  cinema_postgres_data:
+  ta24blearndb2dbdata:
