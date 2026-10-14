@@ -26,6 +26,7 @@ model Movie {
   screenings      Screening[]
   reviews         Review[]
 
+  @@index([title], map: "movies_title_idx")
   @@map("movies")
 }
 
@@ -35,6 +36,7 @@ model News {
   content  String   @db.Text
   postDate DateTime @map("post_date") @db.Date
 
+  @@index([postDate], map: "news_post_date_idx")
   @@map("news")
 }
 
@@ -49,7 +51,8 @@ model Screening {
   bookings    Booking[]
 
   @@index([hallId], map: "screenings_hall_id_idx")
-  @@index([movieId], map: "screenings_movie_id_idx")
+  @@index([startTime], map: "screenings_start_time_idx")
+  @@index([movieId, startTime], map: "screenings_movie_start_time_idx")
   @@map("screenings")
 }
 
@@ -78,7 +81,8 @@ model Booking {
   seat        Seat      @relation(fields: [seatId], references: [seatId], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([screeningId, seatId], map: "bookings_screening_seat_key")
-  @@index([userId], map: "bookings_user_id_idx")
+  @@index([bookingDate], map: "bookings_booking_date_idx")
+  @@index([userId, bookingDate], map: "bookings_user_booking_date_idx")
   @@map("bookings")
 }
 
