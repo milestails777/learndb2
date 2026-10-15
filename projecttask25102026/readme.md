@@ -32,10 +32,13 @@ Open http://localhost:3000/api/movies. Stop with `docker compose down`.
 - `news.post_date` — sorts news by date.
 - `screenings.start_time` — sorts screenings by time.
 - `screenings(movie_id, start_time)` — filters screenings by movie and sorts by time.
+- `screenings.hall_id` — filters seats by the hall for a screening.
 - `bookings.booking_date` — sorts all bookings by date.
 - `bookings(user_id, booking_date)` — filters a user's bookings and sorts by date.
+- `reviews.movie_id` — supports looking up reviews for a movie; there is no reviews API endpoint yet.
+- `reviews.user_id` — supports looking up reviews by user; there is no reviews API endpoint yet.
 
-These indexes match the queries in the API. Primary keys and unique fields are indexed too. There are no movie genre or release-date fields in this project.
+These indexes match API queries where available; the review indexes support lookups if a reviews endpoint is added. Primary keys and unique fields are indexed too. There are no movie genre or release-date fields in this project.
 
 ## Caching plan
 
